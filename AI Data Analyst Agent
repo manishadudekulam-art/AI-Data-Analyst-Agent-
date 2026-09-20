@@ -1,0 +1,107 @@
+import os
+import pandas as pd
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
+class DataAnalystAgent:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.df = None
+
+    def load_data(self):
+        self.df = pd.read_csv(self.file_path)
+        print(f"\nLoaded dataset: {self.df.shape[0]} rows, "
+              f"{self.df.shape[1]} columns")
+
+    def overview(self):
+        print("\n--- Dataset Overview ---")
+        print(self.df.head())
+        print("\nColumns:")
+        print(list(self.df.columns))
+
+        print("\nData Types:")
+        print(self.df.dtypes)
+
+    def missing_values(self):
+        print("\n--- Missing Values ---")
+        missing = self.df.isnull().sum()
+        print(missing[missing > 0])
+
+    def statistics(self):
+        print("\n--- Statistics ---")
+        print(self.df.describe(include="all").transpose())
+
+    def ask_ai(self, question):
+        data_info = {
+            "columns": list(self.df.columns),
+            "shape": self.df.shape,
+            "statistics": self.df.describe(
+                include="all"
+            ).to_dict()
+        }
+
+        prompt = f"""
+You are an AI Data Analyst.
+
+Dataset information:
+{data_info}
+
+User question:
+{question}
+
+Analyze the dataset information and provide:
+1. Direct answer
+2. Important insight
+3. Possible business implication
+
+Be concise and do not invent data.
+"""
+
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=prompt
+        )
+
+        return response.output_text
+
+    def run(self):
+        self.load_data()
+        self.overview()
+        self.missing_values()
+        self.statistics()
+
+        print("\nAI Data Analyst is ready!")
+
+        while True:
+            question = input(
+                "\nAsk a question (or type 'exit'): "
+            )
+
+            if question.lower() == "exit":
+                print("Goodbye!")
+                break
+
+            try:
+                answer = self.ask_ai(question)
+                print("\n--- AI Analysis ---")
+                print(answer)
+            except Exception as e:
+                print("Error:", e)
+
+
+def main():
+    print("=" * 50)
+    print("        AI DATA ANALYST AGENT")
+    print("=" * 50)
+
+    file_path = input("Enter CSV file path: ")
+
+    if not os.path.exists(file_path):
+        print("File not found!")
+        return
+
+    agent = DataAnalystAgent(file_path)
+    agent.run()
+
